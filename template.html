@@ -399,7 +399,14 @@ function render(records, COL, appEl) {
     .sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
 
   /* ---------- Compute per-record classification from member timeline ----------
-     첫등록 = member's 1st season, 첫재등록 = 2nd, 재등록 = 3rd+ */
+     첫등록  = member's 1st appearance
+     첫재등록 = 2nd appearance AND it's the season immediately after the 1st
+                (연속 시즌 등록만 첫재등록으로 인정)
+     재등록  = every other repeat appearance
+                (2nd appearance with a season gap, 또는 3rd+ appearance)                */
+  const seasonIndex = new Map();
+  seasons.forEach((s, i) => seasonIndex.set(s, i));
+
   const historyByMember = new Map();
   rows.forEach(r => {
     const k = memberKey(r);
@@ -418,7 +425,14 @@ function render(records, COL, appEl) {
     });
     const sortedS = [...bySeason.keys()].sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
     sortedS.forEach((s, i) => {
-      const kind = i === 0 ? "첫등록" : i === 1 ? "첫재등록" : "재등록";
+      let kind;
+      if (i === 0) {
+        kind = "첫등록";
+      } else if (i === 1 && seasonIndex.get(s) === seasonIndex.get(sortedS[0]) + 1) {
+        kind = "첫재등록";
+      } else {
+        kind = "재등록";
+      }
       bySeason.get(s).forEach(r => kindByRow.set(r, kind));
     });
   });
@@ -485,8 +499,8 @@ function render(records, COL, appEl) {
         <div class="kpi"><div class="label">시즌 수</div><div class="value">${fmt(seasons.length)}</div><div class="foot">첫 시즌 → 최신</div></div>
         <div class="kpi"><div class="label">최신 시즌 등록</div><div class="value red">${fmt(latestRows.length)}</div><div class="foot">${latestSeason}</div></div>
         <div class="kpi"><div class="label">신규</div><div class="value">${fmt(latestFirst)}</div><div class="foot">최신 시즌 첫등록</div></div>
-        <div class="kpi"><div class="label">첫재등록</div><div class="value">${fmt(latestFirstReturn)}</div><div class="foot">지난 시즌 신규 → 재등록</div></div>
-        <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">3회+ 등록</div></div>
+        <div class="kpi"><div class="label">첫재등록</div><div class="value">${fmt(latestFirstReturn)}</div><div class="foot">직전 시즌 첫등록 → 연속 등록</div></div>
+        <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">첫재등록 외 모든 재등록</div></div>
         <div class="kpi"><div class="label">재등록률</div><div class="value red">${repeatRate}%</div><div class="foot">(첫재등록+재등록) / 전체</div></div>
       </div>
     </section>

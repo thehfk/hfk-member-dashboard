@@ -241,9 +241,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "6rRRC9Y+ha2VXa6ehjY1kw==";
-const ENC_IV   = "z6RbkiR2SNNfj79H";
-const ENC_CT   = "fINsfVAmDVfEGDv0mM2bxt0HcafljhlCsLv6lCcMpMKTzidvI0InpQlyDMhJ5PSutkV+gn/HigYI7EmAOME9fgA61X2smg==";
+const ENC_SALT = "+vRQwQcGOEk2fzYAjh39Rw==";
+const ENC_IV   = "aq6I4JTy/mf/i3jw";
+const ENC_CT   = "4D9wrN1sZfDwvve5xX5jGIIGrTZWKUPYNuRzfk+sowkKk0aCQJU6Ol8leU0mhk3MOqZiyz/k75OdAccasV0TAYk4kv+dsg==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -584,7 +584,7 @@ function render(records, COL, appEl) {
     </section>
 
     <footer>
-      데이터 출처: Google Sheets · 팀 행 더블탭/더블클릭으로 멤버 상세
+      데이터 출처: Google Sheets · 팀 행 클릭으로 멤버 상세
     </footer>
   `;
 
@@ -746,7 +746,7 @@ function render(records, COL, appEl) {
     });
     const teams = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
 
-    summaryEl.innerHTML = `총 <b>${fmt(scope.length)}</b>명 · <b>${teams.length}</b>개 팀 · <span style="color:var(--ink-3)">팀 행을 더블탭/더블클릭하면 멤버 보기</span>`;
+    summaryEl.innerHTML = `총 <b>${fmt(scope.length)}</b>명 · <b>${teams.length}</b>개 팀 · <span style="color:var(--ink-3)">팀 행을 클릭하면 멤버 보기</span>`;
 
     tbodyEl.innerHTML = teams.map(([team, s]) => {
       const returned = s.firstReturn + s.repeat;
@@ -838,7 +838,7 @@ function render(records, COL, appEl) {
     return String(s).replace(/(["\\])/g, "\\$1");
   }
 
-  tbodyEl.addEventListener("dblclick", e => {
+  tbodyEl.addEventListener("click", e => {
     const tr = e.target.closest("tr.clickable");
     if (!tr) return;
     const team = tr.getAttribute("data-team");
@@ -847,23 +847,6 @@ function render(records, COL, appEl) {
       openTeam = null;
     } else {
       openTeamDetail(team);
-    }
-  });
-
-  // Mobile: double-tap detection
-  let lastTap = { team: null, t: 0 };
-  tbodyEl.addEventListener("touchend", e => {
-    const tr = e.target.closest("tr.clickable");
-    if (!tr) return;
-    const team = tr.getAttribute("data-team");
-    const now = Date.now();
-    if (lastTap.team === team && now - lastTap.t < 400) {
-      e.preventDefault();
-      if (team === openTeam) { closeAnyDetail(); openTeam = null; }
-      else openTeamDetail(team);
-      lastTap = { team: null, t: 0 };
-    } else {
-      lastTap = { team, t: now };
     }
   });
 

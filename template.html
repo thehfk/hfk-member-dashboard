@@ -137,8 +137,10 @@
   .pill {
     display: inline-block; padding: 2px 8px; border-radius: 999px;
     font-size: 11px; font-weight: 600;
-    background: var(--hfk-red-soft); color: var(--hfk-red);
+    background: #f2dede; color: #a83030;
   }
+  .pill.mid { background: #e8c8c8; color: #7a1a1a; }
+  .pill.dark { background: var(--hfk-red-soft); color: var(--hfk-red); font-weight: 700; }
   .pill.gray { background: #eee; color: var(--ink-2); }
 
   .loading, .error { padding: 40px; text-align: center; color: var(--ink-3); }
@@ -316,7 +318,8 @@ document.getElementById("lock-btn").addEventListener("click", () => {
 
 /* ---------- App constants ---------- */
 const HFK_RED = "#980000";
-const HFK_RED_SOFT = "#c96a6a";
+const HFK_MID_RED = "#b8656b";
+const HFK_RED_SOFT = "#e0b0b0";
 const NEUTRAL = "#4a4a4a";
 const NEUTRAL_SOFT = "#a8a8a8";
 const PALETTE = [
@@ -371,7 +374,7 @@ async function main() {
 
     const COL = {
       timestamp: 0, season: 3, name: 6, team: 7, workplace: 8, role: 9,
-      phone: 10, years: 12, channel: 13, firstOrRepeat: 16,
+      phone: 10, years: 12, channel: 13,
       workRegion: 24, liveRegion: 25,
     };
 
@@ -394,18 +397,48 @@ function render(records, COL, appEl) {
   const uniqueMembers = new Set(rows.map(memberKey).filter(k => k !== "|")).size;
   const seasons = [...new Set(rows.map(r => r[COL.season].trim()))]
     .sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
+
+  /* ---------- Compute per-record classification from member timeline ----------
+     첫등록 = member's 1st season, 첫재등록 = 2nd, 재등록 = 3rd+ */
+  const historyByMember = new Map();
+  rows.forEach(r => {
+    const k = memberKey(r);
+    if (k === "|") return;
+    if (!historyByMember.has(k)) historyByMember.set(k, []);
+    historyByMember.get(k).push(r);
+  });
+  const kindByRow = new WeakMap();
+  historyByMember.forEach(hist => {
+    // Group by season so same-season duplicates share the same appearance index
+    const bySeason = new Map();
+    hist.forEach(r => {
+      const s = r[COL.season].trim();
+      if (!bySeason.has(s)) bySeason.set(s, []);
+      bySeason.get(s).push(r);
+    });
+    const sortedS = [...bySeason.keys()].sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
+    sortedS.forEach((s, i) => {
+      const kind = i === 0 ? "첫등록" : i === 1 ? "첫재등록" : "재등록";
+      bySeason.get(s).forEach(r => kindByRow.set(r, kind));
+    });
+  });
+  const kindOf = r => kindByRow.get(r) || "기타";
+
   const latestSeason = seasons[seasons.length - 1];
   const latestRows = rows.filter(r => r[COL.season].trim() === latestSeason);
-  const latestFirst = latestRows.filter(r => (r[COL.firstOrRepeat] || "").trim() === "첫등록").length;
-  const latestRepeat = latestRows.filter(r => (r[COL.firstOrRepeat] || "").trim() === "재등록").length;
-  const repeatRate = pct(latestRepeat, latestFirst + latestRepeat);
+  const latestFirst       = latestRows.filter(r => kindOf(r) === "첫등록").length;
+  const latestFirstReturn = latestRows.filter(r => kindOf(r) === "첫재등록").length;
+  const latestRepeat      = latestRows.filter(r => kindOf(r) === "재등록").length;
+  const latestReturnTotal = latestFirstReturn + latestRepeat;
+  const repeatRate = pct(latestReturnTotal, latestFirst + latestReturnTotal);
 
   const seasonAgg = {};
-  seasons.forEach(s => seasonAgg[s] = { first: 0, repeat: 0, other: 0 });
+  seasons.forEach(s => seasonAgg[s] = { first: 0, firstReturn: 0, repeat: 0, other: 0 });
   rows.forEach(r => {
     const s = r[COL.season].trim();
-    const k = (r[COL.firstOrRepeat] || "").trim();
+    const k = kindOf(r);
     if (k === "첫등록") seasonAgg[s].first++;
+    else if (k === "첫재등록") seasonAgg[s].firstReturn++;
     else if (k === "재등록") seasonAgg[s].repeat++;
     else seasonAgg[s].other++;
   });
@@ -452,8 +485,9 @@ function render(records, COL, appEl) {
         <div class="kpi"><div class="label">시즌 수</div><div class="value">${fmt(seasons.length)}</div><div class="foot">첫 시즌 → 최신</div></div>
         <div class="kpi"><div class="label">최신 시즌 등록</div><div class="value red">${fmt(latestRows.length)}</div><div class="foot">${latestSeason}</div></div>
         <div class="kpi"><div class="label">신규</div><div class="value">${fmt(latestFirst)}</div><div class="foot">최신 시즌 첫등록</div></div>
-        <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">최신 시즌 재등록</div></div>
-        <div class="kpi"><div class="label">재등록률</div><div class="value red">${repeatRate}%</div><div class="foot">재등록 / (신규+재등록)</div></div>
+        <div class="kpi"><div class="label">첫재등록</div><div class="value">${fmt(latestFirstReturn)}</div><div class="foot">지난 시즌 신규 → 재등록</div></div>
+        <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">3회+ 등록</div></div>
+        <div class="kpi"><div class="label">재등록률</div><div class="value red">${repeatRate}%</div><div class="foot">(첫재등록+재등록) / 전체</div></div>
       </div>
     </section>
 
@@ -504,13 +538,14 @@ function render(records, COL, appEl) {
         <table>
           <colgroup>
             <col class="c-team"><col class="c-num"><col class="c-num">
-            <col class="c-num"><col class="c-rate"><col class="c-spacer">
+            <col class="c-num"><col class="c-num"><col class="c-rate"><col class="c-spacer">
           </colgroup>
           <thead>
             <tr>
               <th>팀</th>
               <th class="num">인원</th>
               <th class="num">신규</th>
+              <th class="num">첫재등록</th>
               <th class="num">재등록</th>
               <th class="num">재등록 비율</th>
               <th></th>
@@ -537,9 +572,10 @@ function render(records, COL, appEl) {
     data: {
       labels: seasons,
       datasets: [
-        { label: "신규", data: seasons.map(s => seasonAgg[s].first),  backgroundColor: HFK_RED },
-        { label: "재등록", data: seasons.map(s => seasonAgg[s].repeat), backgroundColor: HFK_RED_SOFT },
-        { label: "기타", data: seasons.map(s => seasonAgg[s].other),  backgroundColor: NEUTRAL_SOFT },
+        { label: "신규",     data: seasons.map(s => seasonAgg[s].first),       backgroundColor: HFK_RED },
+        { label: "첫재등록", data: seasons.map(s => seasonAgg[s].firstReturn), backgroundColor: HFK_MID_RED },
+        { label: "재등록",   data: seasons.map(s => seasonAgg[s].repeat),      backgroundColor: HFK_RED_SOFT },
+        { label: "기타",     data: seasons.map(s => seasonAgg[s].other),       backgroundColor: NEUTRAL_SOFT },
       ]
     },
     options: {
@@ -560,8 +596,9 @@ function render(records, COL, appEl) {
         label: "재등록률(%)",
         data: seasons.map(s => {
           const a = seasonAgg[s];
-          const denom = a.first + a.repeat;
-          return denom ? Math.round((a.repeat / denom) * 100) : null;
+          const returned = a.firstReturn + a.repeat;
+          const denom = a.first + returned;
+          return denom ? Math.round((returned / denom) * 100) : null;
         }),
         borderColor: HFK_RED,
         backgroundColor: "rgba(152,0,0,0.08)",
@@ -650,8 +687,8 @@ function render(records, COL, appEl) {
   let currentSeason = latestSeason;
   let openTeam = null;
 
-  const KIND_ORDER = { "첫등록": 0, "재등록": 1 };
-  const kindRank = k => (k in KIND_ORDER) ? KIND_ORDER[k] : 2;
+  const KIND_ORDER = { "첫등록": 0, "첫재등록": 1, "재등록": 2 };
+  const kindRank = k => (k in KIND_ORDER) ? KIND_ORDER[k] : 3;
 
   function renderTeamTable(season) {
     currentSeason = season;
@@ -659,10 +696,11 @@ function render(records, COL, appEl) {
     const byTeam = {};
     scope.forEach(r => {
       const team = (r[COL.team] || "미지정").trim() || "미지정";
-      const k = (r[COL.firstOrRepeat] || "").trim();
-      if (!byTeam[team]) byTeam[team] = { total: 0, first: 0, repeat: 0 };
+      const k = kindOf(r);
+      if (!byTeam[team]) byTeam[team] = { total: 0, first: 0, firstReturn: 0, repeat: 0 };
       byTeam[team].total++;
       if (k === "첫등록") byTeam[team].first++;
+      else if (k === "첫재등록") byTeam[team].firstReturn++;
       else if (k === "재등록") byTeam[team].repeat++;
     });
     const teams = Object.entries(byTeam).sort((a, b) => b[1].total - a[1].total);
@@ -670,12 +708,14 @@ function render(records, COL, appEl) {
     summaryEl.innerHTML = `총 <b>${fmt(scope.length)}</b>명 · <b>${teams.length}</b>개 팀 · <span style="color:var(--ink-3)">팀 행을 더블탭/더블클릭하면 멤버 보기</span>`;
 
     tbodyEl.innerHTML = teams.map(([team, s]) => {
-      const denom = s.first + s.repeat;
-      const rate = denom ? Math.round((s.repeat / denom) * 100) : 0;
+      const returned = s.firstReturn + s.repeat;
+      const denom = s.first + returned;
+      const rate = denom ? Math.round((returned / denom) * 100) : 0;
       return `<tr class="clickable" data-team="${escapeHtml(team)}">
         <td>${escapeHtml(team)}</td>
         <td class="num">${fmt(s.total)}</td>
         <td class="num">${fmt(s.first)}</td>
+        <td class="num">${fmt(s.firstReturn)}</td>
         <td class="num">${fmt(s.repeat)}</td>
         <td class="num">${denom ? `<span class="pill">${rate}%</span>` : `<span class="pill gray">–</span>`}</td>
         <td></td>
@@ -693,21 +733,25 @@ function render(records, COL, appEl) {
         ((r[COL.team] || "미지정").trim() || "미지정") === team
       )
       .sort((a, b) => {
-        const ka = (a[COL.firstOrRepeat] || "").trim();
-        const kb = (b[COL.firstOrRepeat] || "").trim();
-        const rankDiff = kindRank(ka) - kindRank(kb);
+        const rankDiff = kindRank(kindOf(a)) - kindRank(kindOf(b));
         if (rankDiff !== 0) return rankDiff;
         return (a[COL.name] || "").localeCompare(b[COL.name] || "", "ko");
       });
 
+    const pillFor = (kind) => {
+      if (kind === "첫등록") return "pill gray";
+      if (kind === "첫재등록") return "pill mid";
+      if (kind === "재등록") return "pill dark";
+      return "pill gray";
+    };
+
     const rowsHtml = members.map((r, i) => {
-      const kind = (r[COL.firstOrRepeat] || "").trim();
-      const pillClass = kind === "재등록" ? "pill" : "pill gray";
-      const kindLabel = kind || "-";
+      const kind = kindOf(r);
+      const kindLabel = kind === "기타" ? "-" : kind;
       return `<tr>
         <td class="inner-cell num">${i + 1}</td>
         <td class="inner-cell">${escapeHtml((r[COL.name] || "").trim() || "-")}</td>
-        <td class="inner-cell"><span class="${pillClass}">${escapeHtml(kindLabel)}</span></td>
+        <td class="inner-cell"><span class="${pillFor(kind)}">${escapeHtml(kindLabel)}</span></td>
         <td class="inner-cell">${escapeHtml((r[COL.workplace] || "").trim() || "-")}</td>
         <td class="inner-cell">${escapeHtml((r[COL.role] || "").trim() || "-")}</td>
         <td class="inner-cell num">${escapeHtml((r[COL.years] || "").trim() || "-")}</td>
@@ -715,7 +759,7 @@ function render(records, COL, appEl) {
     }).join("");
 
     return `<tr class="detail-row" data-detail-for="${escapeHtml(team)}">
-      <td colspan="6">
+      <td colspan="7">
         <div class="detail-inner">
           <table>
             <thead>

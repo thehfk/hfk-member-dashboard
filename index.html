@@ -130,10 +130,22 @@
   tr.detail-row .detail-inner { padding: 12px 16px 16px; overflow-x: auto; }
   tr.detail-row table {
     background: var(--card); border: 1px solid var(--line);
-    border-radius: 8px; overflow: hidden; min-width: 640px;
+    border-radius: 8px; overflow: hidden;
+    min-width: 640px;
+    table-layout: fixed;
   }
+  tr.detail-row col.d-idx    { width: 40px; }
+  tr.detail-row col.d-name   { width: 78px; }
+  tr.detail-row col.d-kind   { width: 96px; }
+  tr.detail-row col.d-first  { width: 78px; }
+  tr.detail-row col.d-work   { width: auto; }
+  tr.detail-row col.d-role   { width: 22%; }
+  tr.detail-row col.d-years  { width: 50px; }
   tr.detail-row thead th { background: #f4f4f4; padding: 8px 12px; font-size: 11px; }
-  tr.detail-row td.inner-cell { padding: 8px 12px; font-size: 11px; }
+  tr.detail-row td.inner-cell {
+    padding: 8px 12px; font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   tr.detail-row td.inner-cell .pill { font-size: 11px; }
   .pill {
     display: inline-block; padding: 2px 8px; border-radius: 999px;
@@ -242,9 +254,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "5MpEGMCwDbgdMUnNQ1vbgQ==";
-const ENC_IV   = "u9qQHNgLmect3HTV";
-const ENC_CT   = "S+BXDbzHKlqw6XiiyWiH16rYJunzq1aRVyyD/reYXWTmTGLJvgqCE23O1hnVXTsLKjDEWnLzGY+8axobS30DfwLTHVVsqg==";
+const ENC_SALT = "W96qB+TK5ALevXYLQKppFg==";
+const ENC_IV   = "1Ih5z3q6d+JlxVMM";
+const ENC_CT   = "1uAPifwwTVT3K9PrfzDMoppxp7lqwTiClVxlOx9Dt/v9B3HFvsl4GrG1RraPRlgmd2xA3ivuDJxESOCc7Nj0iO27Ss+XvQ==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -827,9 +839,18 @@ function render(records, COL, appEl) {
       <td colspan="7">
         <div class="detail-inner">
           <table>
+            <colgroup>
+              <col class="d-idx">
+              <col class="d-name">
+              <col class="d-kind">
+              <col class="d-first">
+              <col class="d-work">
+              <col class="d-role">
+              <col class="d-years">
+            </colgroup>
             <thead>
               <tr>
-                <th style="width:40px" class="num">#</th>
+                <th class="num">#</th>
                 <th>이름</th>
                 <th>구분</th>
                 <th>첫시즌</th>

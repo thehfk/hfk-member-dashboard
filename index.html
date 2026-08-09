@@ -133,7 +133,8 @@
     border-radius: 8px; overflow: hidden; min-width: 640px;
   }
   tr.detail-row thead th { background: #f4f4f4; padding: 8px 12px; font-size: 11px; }
-  tr.detail-row td.inner-cell { padding: 8px 12px; }
+  tr.detail-row td.inner-cell { padding: 8px 12px; font-size: 11px; }
+  tr.detail-row td.inner-cell .pill { font-size: 11px; }
   .pill {
     display: inline-block; padding: 2px 8px; border-radius: 999px;
     font-size: 11px; font-weight: 600;
@@ -241,9 +242,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "a8+9r3C3sYkvVjcaaLaHtQ==";
-const ENC_IV   = "qVruVd0KOQh7Osv7";
-const ENC_CT   = "VC0lZ3IBvijvx8gQuXplp7ookCk0/hKVMp+dEiyiMhRSeaCmku8BS8xICTmDKoQufFjOuFJZ4gORFaFJ2XufJO5db/+7fQ==";
+const ENC_SALT = "5MpEGMCwDbgdMUnNQ1vbgQ==";
+const ENC_IV   = "u9qQHNgLmect3HTV";
+const ENC_CT   = "S+BXDbzHKlqw6XiiyWiH16rYJunzq1aRVyyD/reYXWTmTGLJvgqCE23O1hnVXTsLKjDEWnLzGY+8axobS30DfwLTHVVsqg==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));

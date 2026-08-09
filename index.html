@@ -130,7 +130,7 @@
   tr.detail-row .detail-inner { padding: 12px 16px 16px; overflow-x: auto; }
   tr.detail-row table {
     background: var(--card); border: 1px solid var(--line);
-    border-radius: 8px; overflow: hidden; min-width: 560px;
+    border-radius: 8px; overflow: hidden; min-width: 640px;
   }
   tr.detail-row thead th { background: #f4f4f4; padding: 8px 12px; font-size: 11px; }
   tr.detail-row td.inner-cell { padding: 8px 12px; }
@@ -241,9 +241,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "K/AfQYUaQ2xbcs5CFa2h5w==";
-const ENC_IV   = "ZD8exIDjUADFbxIo";
-const ENC_CT   = "H13haJaHWA9aapu6wxeYoi7HJdQV50Ns1DAYEafIlj+eWEdfKJ6C6JTXq/Oca/lp2LjTGqFWKeRRcedhxEHIw5G73VESNA==";
+const ENC_SALT = "a8+9r3C3sYkvVjcaaLaHtQ==";
+const ENC_IV   = "qVruVd0KOQh7Osv7";
+const ENC_CT   = "VC0lZ3IBvijvx8gQuXplp7ookCk0/hKVMp+dEiyiMhRSeaCmku8BS8xICTmDKoQufFjOuFJZ4gORFaFJ2XufJO5db/+7fQ==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -786,28 +786,36 @@ function render(records, COL, appEl) {
       return "pill gray";
     };
 
-    // 이 row가 해당 멤버의 몇 번째 등록인지 (1-based, 시즌 순서 기준)
-    const appearanceNum = r => {
+    // 시즌 이름 압축: "2026년 09-11월 가을시즌" → "2026 가을"
+    const compactSeason = s => {
+      const m = s.match(/(\d{4})년.*?(봄|여름|가을|겨울|얼리)/);
+      return m ? `${m[1]} ${m[2]}` : s;
+    };
+
+    // 이 row가 해당 멤버의 몇 번째 등록인지 + 첫 시즌 계산 (히스토리 1회 조회로 공유)
+    const memberMeta = r => {
       const k = memberKey(r);
-      if (k === "|") return 1;
+      if (k === "|") return { appear: 1, first: r[COL.season].trim() };
       const hist = historyByMember.get(k);
-      if (!hist) return 1;
+      if (!hist) return { appear: 1, first: r[COL.season].trim() };
       const memSeasons = [...new Set(hist.map(rr => rr[COL.season].trim()))]
         .sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
       const idx = memSeasons.indexOf(r[COL.season].trim());
-      return idx + 1;
+      return { appear: idx + 1, first: memSeasons[0] };
     };
 
     const rowsHtml = members.map((r, i) => {
       const kind = kindOf(r);
+      const meta = memberMeta(r);
       let kindLabel;
       if (kind === "기타") kindLabel = "-";
-      else if (kind === "재등록") kindLabel = `재등록 ${appearanceNum(r)}`;
+      else if (kind === "재등록") kindLabel = `재등록 ${meta.appear}`;
       else kindLabel = kind;
       return `<tr>
         <td class="inner-cell num">${i + 1}</td>
         <td class="inner-cell">${escapeHtml((r[COL.name] || "").trim() || "-")}</td>
         <td class="inner-cell"><span class="${pillFor(kind)}">${escapeHtml(kindLabel)}</span></td>
+        <td class="inner-cell" style="white-space:nowrap;color:var(--ink-2)">${escapeHtml(compactSeason(meta.first))}</td>
         <td class="inner-cell">${escapeHtml((r[COL.workplace] || "").trim() || "-")}</td>
         <td class="inner-cell">${escapeHtml((r[COL.role] || "").trim() || "-")}</td>
         <td class="inner-cell num">${escapeHtml((r[COL.years] || "").trim() || "-")}</td>
@@ -823,6 +831,7 @@ function render(records, COL, appEl) {
                 <th style="width:40px" class="num">#</th>
                 <th>이름</th>
                 <th>구분</th>
+                <th>첫시즌</th>
                 <th>직장명</th>
                 <th>기능</th>
                 <th class="num">연차</th>

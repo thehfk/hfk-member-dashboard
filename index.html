@@ -135,12 +135,12 @@
     table-layout: fixed;
   }
   tr.detail-row col.d-idx    { width: 40px; }
-  tr.detail-row col.d-name   { width: 78px; }
-  tr.detail-row col.d-kind   { width: 96px; }
+  tr.detail-row col.d-name   { width: 60px; }
+  tr.detail-row col.d-kind   { width: 60px; }
   tr.detail-row col.d-first  { width: 78px; }
   tr.detail-row col.d-work   { width: auto; }
-  tr.detail-row col.d-role   { width: 22%; }
-  tr.detail-row col.d-years  { width: 50px; }
+  tr.detail-row col.d-role   { width: 10%; }
+  tr.detail-row col.d-years  { width: 40px; }
   tr.detail-row thead th { background: #f4f4f4; padding: 8px 12px; font-size: 11px; }
   tr.detail-row td.inner-cell {
     padding: 8px 12px; font-size: 11px;
@@ -254,9 +254,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "W96qB+TK5ALevXYLQKppFg==";
-const ENC_IV   = "1Ih5z3q6d+JlxVMM";
-const ENC_CT   = "1uAPifwwTVT3K9PrfzDMoppxp7lqwTiClVxlOx9Dt/v9B3HFvsl4GrG1RraPRlgmd2xA3ivuDJxESOCc7Nj0iO27Ss+XvQ==";
+const ENC_SALT = "3aBo5Ycc9dC6IClQN4P92A==";
+const ENC_IV   = "Fm+2ylRqOATA0S2e";
+const ENC_CT   = "D41cejzNJI4/aJ9XuR2BN+1ejWaYQWwlCNw5ABm2/Utw0Oj9tOHKse2hd/Sfb+QJaxtSKHaPOPNVTKCEimWXEpKlgc6jCA==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));

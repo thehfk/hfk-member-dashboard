@@ -130,7 +130,7 @@
   tr.detail-row .detail-inner { padding: 12px 16px 16px; overflow-x: auto; }
   tr.detail-row table {
     background: var(--card); border: 1px solid var(--line);
-    border-radius: 8px; overflow: hidden; min-width: 640px;
+    border-radius: 8px; overflow: hidden; min-width: 560px;
   }
   tr.detail-row thead th { background: #f4f4f4; padding: 8px 12px; font-size: 11px; }
   tr.detail-row td.inner-cell { padding: 8px 12px; }
@@ -241,9 +241,9 @@
 
 <script>
 /* ---------- Encrypted config (substituted by build.mjs) ---------- */
-const ENC_SALT = "X/x5lhyDLWEt9wYDnaughg==";
-const ENC_IV   = "Cri09CL59Zs9NE7t";
-const ENC_CT   = "smE2cG8I+czu9jEfuU6XbZyAzGLoDS5JCK0W530PjEarSIEk2GLr9QO4XeLFOxZH6JssfgNlBLhm9I0Naczdq+xEKRUMHA==";
+const ENC_SALT = "iB0sBEGjIzFlJ4zBZqo3oQ==";
+const ENC_IV   = "qZEBwmDTj3pzSiPP";
+const ENC_CT   = "95mZNSLuFXm1VBwPl7IT/ogiI4foLuKv9JCErggBk0R0LSzDtM6IjEmE/0MIPIzxAB1PNWSboisfoQ7cugoAwLhseh+qRQ==";
 const SESSION_KEY = "hfk_dash_csv_url_v1";
 
 const b64ToBytes = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -786,24 +786,28 @@ function render(records, COL, appEl) {
       return "pill gray";
     };
 
-    // 누적 등록 횟수 = 그 멤버가 등록한 유니크 시즌 수 (전 기간 기준)
-    const cumRegs = r => {
+    // 이 row가 해당 멤버의 몇 번째 등록인지 (1-based, 시즌 순서 기준)
+    const appearanceNum = r => {
       const k = memberKey(r);
       if (k === "|") return 1;
       const hist = historyByMember.get(k);
       if (!hist) return 1;
-      return new Set(hist.map(rr => rr[COL.season].trim())).size;
+      const memSeasons = [...new Set(hist.map(rr => rr[COL.season].trim()))]
+        .sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
+      const idx = memSeasons.indexOf(r[COL.season].trim());
+      return idx + 1;
     };
 
     const rowsHtml = members.map((r, i) => {
       const kind = kindOf(r);
-      const kindLabel = kind === "기타" ? "-" : kind;
-      const cum = cumRegs(r);
+      let kindLabel;
+      if (kind === "기타") kindLabel = "-";
+      else if (kind === "재등록") kindLabel = `재등록 ${appearanceNum(r)}`;
+      else kindLabel = kind;
       return `<tr>
         <td class="inner-cell num">${i + 1}</td>
         <td class="inner-cell">${escapeHtml((r[COL.name] || "").trim() || "-")}</td>
         <td class="inner-cell"><span class="${pillFor(kind)}">${escapeHtml(kindLabel)}</span></td>
-        <td class="inner-cell num"><b>${fmt(cum)}</b><span style="color:var(--ink-3);font-size:10px;margin-left:2px">회</span></td>
         <td class="inner-cell">${escapeHtml((r[COL.workplace] || "").trim() || "-")}</td>
         <td class="inner-cell">${escapeHtml((r[COL.role] || "").trim() || "-")}</td>
         <td class="inner-cell num">${escapeHtml((r[COL.years] || "").trim() || "-")}</td>
@@ -819,7 +823,6 @@ function render(records, COL, appEl) {
                 <th style="width:40px" class="num">#</th>
                 <th>이름</th>
                 <th>구분</th>
-                <th class="num">누적 등록</th>
                 <th>직장명</th>
                 <th>기능</th>
                 <th class="num">연차</th>

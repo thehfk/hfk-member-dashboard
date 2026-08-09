@@ -438,14 +438,6 @@ function render(records, COL, appEl) {
   });
   const kindOf = r => kindByRow.get(r) || "기타";
 
-  const latestSeason = seasons[seasons.length - 1];
-  const latestRows = rows.filter(r => r[COL.season].trim() === latestSeason);
-  const latestFirst       = latestRows.filter(r => kindOf(r) === "첫등록").length;
-  const latestFirstReturn = latestRows.filter(r => kindOf(r) === "첫재등록").length;
-  const latestRepeat      = latestRows.filter(r => kindOf(r) === "재등록").length;
-  const latestReturnTotal = latestFirstReturn + latestRepeat;
-  const repeatRate = pct(latestReturnTotal, latestFirst + latestReturnTotal);
-
   const seasonAgg = {};
   seasons.forEach(s => seasonAgg[s] = { first: 0, firstReturn: 0, repeat: 0, other: 0 });
   rows.forEach(r => {
@@ -456,6 +448,26 @@ function render(records, COL, appEl) {
     else if (k === "재등록") seasonAgg[s].repeat++;
     else seasonAgg[s].other++;
   });
+
+  // 첫재등록률 per season = (이번 첫재등록) / (직전 시즌 첫등록)
+  seasons.forEach((s, i) => {
+    if (i === 0) { seasonAgg[s].firstReturnRate = null; return; }
+    const prevFirst = seasonAgg[seasons[i - 1]].first;
+    seasonAgg[s].firstReturnRate = prevFirst
+      ? Math.round((seasonAgg[s].firstReturn / prevFirst) * 100)
+      : null;
+  });
+
+  const latestSeason = seasons[seasons.length - 1];
+  const latestRows = rows.filter(r => r[COL.season].trim() === latestSeason);
+  const latestFirst       = latestRows.filter(r => kindOf(r) === "첫등록").length;
+  const latestFirstReturn = latestRows.filter(r => kindOf(r) === "첫재등록").length;
+  const latestRepeat      = latestRows.filter(r => kindOf(r) === "재등록").length;
+  const latestReturnTotal = latestFirstReturn + latestRepeat;
+  const repeatRate = pct(latestReturnTotal, latestFirst + latestReturnTotal);
+  const latestFirstReturnRate = seasonAgg[latestSeason].firstReturnRate;
+  const prevSeasonName = seasons.length >= 2 ? seasons[seasons.length - 2] : null;
+  const prevSeasonFirst = prevSeasonName ? seasonAgg[prevSeasonName].first : 0;
 
   const countBy = (idx, opts = {}) => {
     const c = {};
@@ -502,6 +514,7 @@ function render(records, COL, appEl) {
         <div class="kpi"><div class="label">첫재등록</div><div class="value">${fmt(latestFirstReturn)}</div><div class="foot">직전 시즌 첫등록 → 연속 등록</div></div>
         <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">첫재등록 외 모든 재등록</div></div>
         <div class="kpi"><div class="label">재등록률</div><div class="value red">${repeatRate}%</div><div class="foot">(첫재등록+재등록) / 전체</div></div>
+        <div class="kpi"><div class="label">첫재등록률</div><div class="value red">${latestFirstReturnRate == null ? '–' : latestFirstReturnRate + '%'}</div><div class="foot">${prevSeasonFirst ? `직전 시즌 첫등록 ${fmt(prevSeasonFirst)}명 중` : '직전 시즌 데이터 없음'}</div></div>
       </div>
     </section>
 
@@ -513,7 +526,7 @@ function render(records, COL, appEl) {
           <div class="chart-box tall"><canvas id="chart-seasons"></canvas></div>
         </div>
         <div class="card col-8">
-          <h3>재등록률 추이 <span class="sub">시즌별</span></h3>
+          <h3>재등록률·첫재등록률 추이 <span class="sub">시즌별</span></h3>
           <div class="chart-box"><canvas id="chart-repeat-rate"></canvas></div>
         </div>
         <div class="card col-4">
@@ -606,22 +619,36 @@ function render(records, COL, appEl) {
     type: "line",
     data: {
       labels: seasons,
-      datasets: [{
-        label: "재등록률(%)",
-        data: seasons.map(s => {
-          const a = seasonAgg[s];
-          const returned = a.firstReturn + a.repeat;
-          const denom = a.first + returned;
-          return denom ? Math.round((returned / denom) * 100) : null;
-        }),
-        borderColor: HFK_RED,
-        backgroundColor: "rgba(152,0,0,0.08)",
-        fill: true, tension: 0.25, pointRadius: 2,
-      }]
+      datasets: [
+        {
+          label: "재등록률",
+          data: seasons.map(s => {
+            const a = seasonAgg[s];
+            const returned = a.firstReturn + a.repeat;
+            const denom = a.first + returned;
+            return denom ? Math.round((returned / denom) * 100) : null;
+          }),
+          borderColor: HFK_RED,
+          backgroundColor: "rgba(152,0,0,0.08)",
+          fill: true, tension: 0.25, pointRadius: 2,
+        },
+        {
+          label: "첫재등록률",
+          data: seasons.map(s => seasonAgg[s].firstReturnRate),
+          borderColor: HFK_MID_RED,
+          backgroundColor: "transparent",
+          borderDash: [4, 4],
+          fill: false, tension: 0.25, pointRadius: 2,
+          spanGaps: true,
+        },
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y == null ? '–' : ctx.parsed.y + '%'}` } },
+      },
       scales: {
         x: { ticks: { autoSkip: true, maxRotation: 70, minRotation: 45, font: { size: 10 } } },
         y: { beginAtZero: true, max: 100, ticks: { callback: v => v + "%" } }

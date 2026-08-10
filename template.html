@@ -204,6 +204,30 @@
 
   #main-app[hidden] { display: none; }
 
+  /* --- Top season filter bar --- */
+  .season-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; margin: 16px 0 0;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; flex-wrap: wrap;
+  }
+  .season-bar[hidden] { display: none; }
+  .season-bar label {
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-weight: 700;
+  }
+  .season-bar select {
+    min-width: 240px;
+  }
+  .season-bar .scope-note {
+    font-size: 12px; color: var(--ink-2);
+    margin-left: auto;
+  }
+  @media (max-width: 600px) {
+    .season-bar .scope-note { margin-left: 0; width: 100%; font-size: 11px; }
+  }
+
   /* Mobile refinements */
   @media (max-width: 600px) {
     .wrap { padding: 20px 14px 48px; }
@@ -248,6 +272,11 @@
         <button class="lock-btn" id="lock-btn" title="세션 잠금">잠그기</button>
       </div>
     </header>
+    <div id="season-bar" class="season-bar" hidden>
+      <label for="top-season-select">기준 시즌</label>
+      <select id="top-season-select"></select>
+      <span class="scope-note">선택한 시즌까지의 데이터로 대쉬보드 조회</span>
+    </div>
     <div id="app" class="loading">데이터를 준비하고 있어요.</div>
   </div>
 </div>
@@ -373,10 +402,21 @@ function seasonSortKey(s) {
 function fmt(n) { return n.toLocaleString("ko-KR"); }
 function pct(n, d) { return d ? Math.round((n / d) * 100) : 0; }
 
+/* ---------- Global state for top season filter ---------- */
+const COL = {
+  timestamp: 0, season: 3, name: 6, team: 7, workplace: 8, role: 9,
+  phone: 10, years: 12, channel: 13,
+  workRegion: 24, liveRegion: 25,
+};
+let ALL_RECORDS = null;
+let ALL_SEASONS = null;
+
 /* ---------- main ---------- */
 async function main() {
   const statusEl = document.getElementById("status");
   const appEl = document.getElementById("app");
+  const seasonBar = document.getElementById("season-bar");
+  const topSel = document.getElementById("top-season-select");
   try {
     const res = await fetch(CSV_URL, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -385,13 +425,19 @@ async function main() {
     const headers = rows[0];
     const records = rows.slice(1).filter(r => r.length >= headers.length && r.some(v => v && v.trim()));
 
-    const COL = {
-      timestamp: 0, season: 3, name: 6, team: 7, workplace: 8, role: 9,
-      phone: 10, years: 12, channel: 13,
-      workRegion: 24, liveRegion: 25,
-    };
+    ALL_RECORDS = records.filter(r => (r[COL.season] || "").trim());
+    ALL_SEASONS = [...new Set(ALL_RECORDS.map(r => r[COL.season].trim()))]
+      .sort((a, b) => seasonSortKey(a) - seasonSortKey(b));
 
-    render(records, COL, appEl);
+    // Populate top season selector (newest first, default = latest)
+    topSel.innerHTML = ALL_SEASONS.slice().reverse()
+      .map(s => `<option value="${s}">${s}</option>`).join("");
+    const defaultSeason = ALL_SEASONS[ALL_SEASONS.length - 1];
+    topSel.value = defaultSeason;
+    topSel.addEventListener("change", () => renderWithCutoff(topSel.value));
+    seasonBar.hidden = false;
+
+    renderWithCutoff(defaultSeason);
     statusEl.textContent = `최근 갱신 · ${new Date().toLocaleString("ko-KR")}`;
   } catch (e) {
     console.error(e);
@@ -402,7 +448,25 @@ async function main() {
   }
 }
 
+function renderWithCutoff(cutoffSeason) {
+  const cutoffIdx = ALL_SEASONS.indexOf(cutoffSeason);
+  if (cutoffIdx < 0) return;
+  const filteredRecords = ALL_RECORDS.filter(r =>
+    ALL_SEASONS.indexOf(r[COL.season].trim()) <= cutoffIdx
+  );
+  const appEl = document.getElementById("app");
+  render(filteredRecords, COL, appEl);
+}
+
 function render(records, COL, appEl) {
+  // Destroy any existing Chart.js instances before we replace the DOM
+  // (top-season change re-runs render → canvases get recreated)
+  ["chart-seasons","chart-repeat-rate","chart-channel","chart-role",
+   "chart-years","chart-work-region","chart-live-region"].forEach(id => {
+    const c = document.getElementById(id);
+    if (c && window.Chart) Chart.getChart(c)?.destroy();
+  });
+
   const rows = records.filter(r => (r[COL.season] || "").trim());
 
   const total = rows.length;
@@ -519,11 +583,11 @@ function render(records, COL, appEl) {
   appEl.innerHTML = `
     <section>
       <div class="kpi-grid">
-        <div class="kpi"><div class="label">누적 등록</div><div class="value">${fmt(total)}</div><div class="foot">전 시즌 합계</div></div>
+        <div class="kpi"><div class="label">누적 등록</div><div class="value">${fmt(total)}</div><div class="foot">기준 시즌까지 합계</div></div>
         <div class="kpi"><div class="label">유니크 멤버</div><div class="value">${fmt(uniqueMembers)}</div><div class="foot">이름+휴대폰 기준</div></div>
-        <div class="kpi"><div class="label">시즌 수</div><div class="value">${fmt(seasons.length)}</div><div class="foot">첫 시즌 → 최신</div></div>
-        <div class="kpi"><div class="label">최신 시즌 등록</div><div class="value red">${fmt(latestRows.length)}</div><div class="foot">${latestSeason}</div></div>
-        <div class="kpi"><div class="label">신규</div><div class="value">${fmt(latestFirst)}</div><div class="foot">최신 시즌 첫등록</div></div>
+        <div class="kpi"><div class="label">시즌 수</div><div class="value">${fmt(seasons.length)}</div><div class="foot">첫 시즌 → 기준 시즌</div></div>
+        <div class="kpi"><div class="label">기준 시즌 등록</div><div class="value red">${fmt(latestRows.length)}</div><div class="foot">${latestSeason}</div></div>
+        <div class="kpi"><div class="label">신규</div><div class="value">${fmt(latestFirst)}</div><div class="foot">기준 시즌 첫등록</div></div>
         <div class="kpi"><div class="label">첫재등록</div><div class="value">${fmt(latestFirstReturn)}</div><div class="foot">직전 시즌 첫등록 → 연속 등록</div></div>
         <div class="kpi"><div class="label">재등록</div><div class="value">${fmt(latestRepeat)}</div><div class="foot">첫재등록 외 모든 재등록</div></div>
         <div class="kpi"><div class="label">재등록률</div><div class="value red">${repeatRate}%</div><div class="foot">(첫재등록+재등록) / 전체</div></div>
@@ -532,7 +596,7 @@ function render(records, COL, appEl) {
     </section>
 
     <section>
-      <h2>분포·추이 <span class="sub">전 시즌 누적 기준</span></h2>
+      <h2>분포·추이 <span class="sub">기준 시즌까지 누적</span></h2>
       <div class="charts">
         <div class="card col-12">
           <h3>시즌별 등록 추이 <span class="sub">신규·재등록 스택</span></h3>
@@ -566,12 +630,8 @@ function render(records, COL, appEl) {
     </section>
 
     <section>
-      <h2>팀·세션별 뷰</h2>
+      <h2>팀·세션별 뷰 <span class="sub">${escapeHtml(latestSeason)} 팀 구성</span></h2>
       <div class="controls">
-        <label for="season-select" style="font-size:13px;color:var(--ink-2)">시즌</label>
-        <select id="season-select">
-          ${seasons.slice().reverse().map(s => `<option value="${s}">${s}</option>`).join("")}
-        </select>
         <div class="season-summary" id="season-summary"></div>
       </div>
       <div class="table-wrap">
@@ -733,8 +793,7 @@ function render(records, COL, appEl) {
     }
   });
 
-  /* ---------- Season/Team view ---------- */
-  const selectEl = document.getElementById("season-select");
+  /* ---------- Season/Team view (driven by top season filter) ---------- */
   const tbodyEl = document.getElementById("team-tbody");
   const summaryEl = document.getElementById("season-summary");
 
@@ -896,7 +955,6 @@ function render(records, COL, appEl) {
     }
   });
 
-  selectEl.addEventListener("change", e => renderTeamTable(e.target.value));
   renderTeamTable(latestSeason);
 }
 
